@@ -11,6 +11,7 @@ const int button1Pin = 9;  // the number of the pushbutton pin
 const int button2Pin = 8;
 const int button3Pin = 7;
 const int button4Pin = 6;
+const int button5Pin = 5;
 
 int LM35_Raw_Sensor1 = 0;
 float LM35_TempC_Sensor1 = 0.0;
@@ -21,6 +22,7 @@ int button1State = 0; // variable to store the state of button 1
 int button2State = 0; // variable to store the state of button 2
 int button3State = 0; // variable to store the state of button 3
 int button4State = 0; // variable to store the state of button 4
+int button5State = 0; // variable to store the state of button 5
 int currentSpeed = 1;
 int RECV_PIN = 11; // IR Receiver connected to Pin 11
 int signalsReceived = 0;
@@ -36,6 +38,7 @@ bool fan_power = false;
 bool finished = false;
 bool tempLoop = false;
 bool tempMesSent = false;
+bool clearMesSent = false;
 
 IRrecv irrecv(RECV_PIN);
 decode_results results;
@@ -47,6 +50,7 @@ void setup()
   pinMode(button2Pin, INPUT); // set button 2 pin as an input
   pinMode(button3Pin, INPUT); // set button 3 pin as an input
   pinMode(button4Pin, INPUT); // set button 4 pin as an input
+  pinMode(button5Pin, INPUT); // set button 4 pin as an input
   irrecv.enableIRIn();  // Start the receiver
   irsend.begin(); // Start the transmitter
 }
@@ -65,11 +69,19 @@ void loop()
   button2State = digitalRead(button2Pin); // read the state of button 2
   button3State = digitalRead(button3Pin); // read the state of button 3
   button4State = digitalRead(button4Pin); // read the state of button 4
+  button5State = digitalRead(button5Pin); // read the state of button 4
 
   if (button3State == HIGH) {
     Serial.println("IR Receiver activated.");
-    Serial.println("Please send the Power Signal:");
     IRreceiver();
+  }
+
+  if (button4State == HIGH){
+    if(!clearMesSent){
+      Serial.println("Signals Cleared. ");
+      clearMesSent = true;
+    }
+    clearSignals();
   }
 
   if (button1State == HIGH) {
@@ -135,21 +147,21 @@ void loop()
             } 
           }
       }
-            // Print The Readings
+          if(digitalRead(button5Pin) == HIGH){
+            Serial.println("Temperature Control Deactivated. ");
+            tempLoop = false;
+            tempMesSent = false;
+            break;
+          }
+        }
+    }
+        // Print The Readings
     Serial.print("Temperature = ");
     Serial.print(LM35_TempC_Sensor1);
     Serial.println(" °C ");
     Serial.print("Speed = ");
     Serial.println(currentSpeed);
     delay(400);
-
-          if(digitalRead(button2Pin) == HIGH){
-            Serial.println("Temperature Control Deactivated. ");
-            tempLoop = false;
-            break;
-      }
-        }
-    }
     }
   }
 
@@ -164,24 +176,19 @@ uint32_t readADC_Cal(int ADC_Raw)
 }
 
 void IRreceiver() {
-  button4State = digitalRead(button4Pin); // read the state of the button pin
-  if (button4State == HIGH){
-    Serial.println("Signals Cleared. ");
-    clearSignals();
-  }
   if(!finished){
     Serial.println("Please send the Power Signal: ");
     while(!finished){
       if (irrecv.decode(&results)) {
         if(!powerSignal){
           Serial.println("Power Signal received. ");
-          powerSignal = results.value;
+          powerSignal = results.value; // this is the Power Signal code decoded
           signalsReceived++;
           Serial.println("Please send the Speed Signal: ");
       }
         else if(!speedSignal){
           Serial.println("Speed Signal received. ");
-          speedSignal = results.value;
+          speedSignal = results.value; // this is the Speed Signal code decoded
           signalsReceived++;
       }
       irrecv.resume(); // Receive the next value
@@ -205,4 +212,5 @@ void clearSignals(){
   powerSignal = 0;
   signalsReceived = 0;
   finished = false;
+  clearMesSent = false;
 }
